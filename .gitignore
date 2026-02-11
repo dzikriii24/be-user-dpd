@@ -1,2 +1,39 @@
+# ======================
+# Environment Variables
+# ======================
 .env
-/config/db.js
+.env.*
+!.env.example
+
+# ======================
+# Config / Secret Files
+# ======================
+config/db.js
+
+# ======================
+# Node Modules
+# ======================
+node_modules/
+
+# ======================
+# Logs
+# ======================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs
+*.log
+
+# ======================
+# OS Files
+# ======================
+.DS_Store
+Thumbs.db
+
+# ======================
+# Build / Cache
+# ======================
+dist/
+build/
+.next/
+.cache/
