@@ -29,6 +29,20 @@ app.get('/', (req, res) => {
     res.send('🚀 Server API User Absensi Siap!');
 });
 
+// --- API TEST DATABASE CONNECTION ---
+app.get('/api/test-db', async (req, res) => {
+    try {
+        const [rows] = await db.query('SELECT 1 + 1 AS result');
+        res.json({
+            status: 'success',
+            message: 'Database Terhubung!',
+            result: rows[0].result
+        });
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
 // Contoh Route Test Database Langsung di Browser
 app.get('/api/test-users', async (req, res) => {
     try {
