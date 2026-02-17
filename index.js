@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 
 // Load Config
 // PENTING: Load dotenv sebelum load file database agar process.env terbaca
@@ -214,4 +215,11 @@ app.listen(PORT, () => {
     http://localhost:${PORT}
     ========================================
     `);
+
+    // Cek IP Public Server (Untuk Debugging Whitelist Database)
+    https.get('https://api.ipify.org', (res) => {
+        res.on('data', (d) => {
+            console.log("Server public IP:", d.toString());
+        });
+    });
 });
