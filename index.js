@@ -1,18 +1,28 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const db = require('./config/db');
+const fs = require('fs');
+const path = require('path');
 
 // Load Config
-dotenv.config();
+// PENTING: Load dotenv sebelum load file database agar process.env terbaca
+dotenv.config(); 
+
+const db = require('./config/db');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors()); // Biar frontend bisa akses
-app.use(express.json()); // Biar bisa baca JSON dari frontend
+app.use(express.json({ limit: '10mb' })); // Diperbesar agar bisa upload foto (Base64)
 app.use(express.static('public')); // Untuk akses folder foto/uploads
+
+// Pastikan folder uploads ada
+const uploadDir = path.join(__dirname, 'public/uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Route Test Sederhana
 app.get('/', (req, res) => {
@@ -128,8 +138,28 @@ app.post('/api/absensi-pulang', async (req, res) => {
 
 // --- API SIMPAN LAPORAN (HARIAN / DARURAT) ---
 app.post('/api/laporan', async (req, res) => {
-    const { user_id, tanggal, isi_laporan, checklist_json, foto_bukti } = req.body;
+    let { user_id, tanggal, isi_laporan, checklist_json, foto_bukti } = req.body;
     try {
+        // PROSES UPLOAD FOTO (Base64 -> File)
+        if (foto_bukti && foto_bukti.startsWith('data:image')) {
+            // 1. Ambil ekstensi & data
+            const matches = foto_bukti.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+                const buffer = Buffer.from(matches[2], 'base64');
+                
+                // 2. Buat nama file unik
+                const filename = `laporan-${Date.now()}-${Math.round(Math.random() * 1000)}.${ext}`;
+                const filepath = path.join(uploadDir, filename);
+
+                // 3. Simpan file ke folder public/uploads
+                fs.writeFileSync(filepath, buffer);
+
+                // 4. Update variabel foto_bukti jadi path URL (bukan base64 lagi)
+                foto_bukti = `/uploads/${filename}`;
+            }
+        }
+
         await db.query(
             'INSERT INTO laporan (user_id, tanggal, isi_laporan, checklist_json, foto_bukti) VALUES (?, ?, ?, ?, ?)',
             [user_id, tanggal, isi_laporan, JSON.stringify(checklist_json), foto_bukti]
@@ -138,6 +168,28 @@ app.post('/api/laporan', async (req, res) => {
     } catch (error) {
         res.status(500).json({ status: 'error', message: error.message });
     }
+});
+
+// --- API UPDATE PROFIL (Hanya Nama) ---
+app.put('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nama } = req.body;
+    try {
+        await db.query('UPDATE users SET nama = ? WHERE id = ?', [nama, id]);
+        res.json({ status: 'success', message: 'Profil berhasil diperbarui' });
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+// --- API NOTIFIKASI (MOCK) ---
+app.get('/api/notifications', (req, res) => {
+    // Simulasi notifikasi dari Admin
+    const notifications = [
+        { id: 1, title: 'Jadwal Shift Baru', message: 'Jadwal shift bulan depan sudah keluar. Silakan cek di papan pengumuman.', date: new Date().toISOString(), type: 'info' },
+        { id: 2, title: 'Maintenance Sistem', message: 'Akan ada pemeliharaan server pada tanggal 30 Oktober pukul 00:00 WIB.', date: new Date(Date.now() - 86400000).toISOString(), type: 'warning' },
+    ];
+    res.json({ status: 'success', data: notifications });
 });
 
 // Jalankan Server
